@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🖐️ 魔法空中手勢互動遊樂場</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+TC:wght@300;500;700&display=swap" rel="stylesheet">
+    
+    <!-- MediaPipe Hands Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            font-family: 'Noto Sans TC', 'Orbitron', sans-serif;
+            background-color: #030712;
+            user-select: none;
+        }
+        .cyber-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .neon-glow-primary {
+            text-shadow: 0 0 10px rgba(129, 140, 248, 0.8), 0 0 20px rgba(129, 140, 248, 0.3);
+        }
+        .neon-border-active {
+            border-color: #818cf8;
+            box-shadow: 0 0 15px rgba(129, 140, 248, 0.5);
+        }
+        /* 隱藏原生 Video 鏡像 */
+        #webcam {
+            transform: scaleX(-1);
+        }
+    </style>
+</head>
+<body class="w-screen h-screen overflow-hidden text-slate-100 flex flex-col md:flex-row">
+
+    <!-- 頂部/左側控制面板 (Dashboard & Switcher) -->
+    <div class="w-full md:w-80 lg:w-96 h-auto md:h-full cyber-panel z-30 p-5 flex flex-col justify-between border-b md:border-b-0 md:border-r border-indigo-500/20 shrink-0">
+        <div>
+            <!-- 標題區 -->
+            <div class="flex items-center space-x-3 mb-6">
+                <div class="p-2.5 bg-indigo-600/20 rounded-xl border border-indigo-500/40 text-indigo-400 animate-pulse">
+                    <i data-lucide="sparkles" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wider text-indigo-300 font-['Orbitron']">AIR GESTURE</h1>
+                    <p class="text-xs text-slate-400">十指虛擬體感遊樂場</p>
+                </div>
+            </div>
+
+            <!-- 狀態指示燈 -->
+            <div class="mb-6 p-3 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                <div class="flex items-center space-x-2">
+                    <span id="status-dot" class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping"></span>
+                    <span id="status-text" class="text-slate-300 font-medium">偵測引擎載入中...</span>
+                </div>
+                <button id="btn-toggle-camera" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition rounded-lg text-white font-medium shadow-md shadow-indigo-600/20 flex items-center gap-1">
+                    <i data-lucide="video" class="w-3.5 h-3.5"></i> 啟用相機
+                </button>
+            </div>
+
+            <!-- 功能模式切換器 -->
+            <h2 class="text-xs font-bold text-slate-400 tracking-widest uppercase mb-3">選擇魔法模式</h2>
+            <div class="space-y-2 mb-6" id="mode-selector">
+                <!-- 模式 1 -->
+                <button onclick="switchMode('conductor')" id="btn-mode-conductor" class="w-full p-3 rounded-xl flex items-center space-x-3 text-left transition duration-200 border border-transparent bg-slate-800/40 hover:bg-indigo-950/20 text-slate-300">
+                    <div class="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                        <i data-lucide="music" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-sm">🎵 應用一：魔法指揮家</div>
+                        <div class="text-xs text-slate-400">空氣聲波與和弦合成器</div>
+                    </div>
+                </button>
+                <!-- 模式 2 -->
+                <button onclick="switchMode('painter')" id="btn-mode-painter" class="w-full p-3 rounded-xl flex items-center space-x-3 text-left transition duration-200 border border-transparent bg-slate-800/40 hover:bg-indigo-950/20 text-slate-300">
+                    <div class="p-2 bg-pink-500/10 rounded-lg text-pink-400">
+                        <i data-lucide="paint-brush" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-sm">🎨 應用二：空氣 3D 雕塑家</div>
+                        <div class="text-xs text-slate-400">捏合手勢 3D 霓虹繪圖</div>
+                    </div>
+                </button>
+                <!-- 模式 3 -->
+                <button onclick="switchMode('spell')" id="btn-mode-spell" class="w-full p-3 rounded-xl flex items-center space-x-3 text-left transition duration-200 border border-transparent bg-slate-800/40 hover:bg-indigo-950/20 text-slate-300">
+                    <div class="p-2 bg-rose-500/10 rounded-lg text-rose-400">
+                        <i data-lucide="swords" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-sm">⚔️ 應用三：手勢對決魔法師</div>
+                        <div class="text-xs text-slate-400">四大炫麗手勢咒語對戰 Boss</div>
+                    </div>
+                </button>
+                <!-- 模式 4 -->
+                <button onclick="switchMode('presentation')" id="btn-mode-presentation" class="w-full p-3 rounded-xl flex items-center space-x-3 text-left transition duration-200 border border-transparent bg-slate-800/40 hover:bg-indigo-950/20 text-slate-300">
+                    <div class="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+                        <i data-lucide="sliders" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-sm">📑 應用四：生活與簡報助手</div>
+                        <div class="text-xs text-slate-400">揮手翻頁、噤聲與焦點縮放</div>
+                    </div>
+                </button>
+                <!-- 模式 5 -->
+                <button onclick="switchMode('puppet')" id="btn-mode-puppet" class="w-full p-3 rounded-xl flex items-center space-x-3 text-left transition duration-200 border border-transparent bg-slate-800/40 hover:bg-indigo-950/20 text-slate-300">
+                    <div class="p-2 bg-amber-500/10 rounded-lg text-amber-400">
+                        <i data-lucide="toy-brick" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-sm">🎭 應用五：AR 數位偶戲館</div>
+                        <div class="text-xs text-slate-400">骨架連動！操控虛擬兔子玩偶</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 下方提示訊息區 -->
+        <div class="mt-4 p-4 bg-slate-900/80 rounded-2xl border border-slate-800/80 text-xs text-slate-400 space-y-2">
+            <div class="flex items-center gap-1.5 font-bold text-slate-300">
+                <i data-lucide="info" class="w-4 h-4 text-indigo-400"></i>
+                <span>當前模式操作說明</span>
+            </div>
+            <p id="mode-instructions" class="leading-relaxed">
+                載入中...
+            </p>
+            <div class="pt-2 border-t border-slate-800 flex items-center justify-between">
+                <span>模擬模式(沒相機時)</span>
+                <span class="px-2 py-0.5 bg-slate-800 rounded font-semibold text-[10px] text-amber-400">滑鼠拖曳點擊</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右側/主操作區域 (Webcam, Canvas & Simulation) -->
+    <div class="flex-1 h-full relative flex items-center justify-center bg-slate-950">
+        
+        <!-- 背景裝飾與網格 -->
+        <div class="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-35 z-0"></div>
+
+        <!-- 視訊與繪圖畫布容器 -->
+        <div class="relative w-full h-full max-w-5xl max-h-[85vh] md:m-6 rounded-none md:rounded-3xl border border-indigo-500/10 overflow-hidden shadow-2xl flex items-center justify-center bg-black/40 z-10">
+            
+            <!-- 視訊輸入 (隱藏或低透明度疊加) -->
+            <video id="webcam" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover opacity-20 transform scale-x-[-1] pointer-events-none"></video>
+
+            <!-- 魔法渲染 Canvas -->
+            <canvas id="magic-canvas" class="absolute inset-0 w-full h-full cursor-crosshair transform scale-x-[-1] z-10"></canvas>
+            
+            <!-- 上層不鏡像的 HUD overlay (血條、兔子、簡報等在此渲染，避免文字鏡像顛倒) -->
+            <div id="hud-overlay" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-6">
+                
+                <!-- 頂部 HUD (Boss 血條等) -->
+                <div id="hud-top" class="w-full flex justify-between items-start">
+                    <div class="bg-slate-900/80 backdrop-blur border border-slate-800 px-4 py-2 rounded-xl flex items-center space-x-3 text-xs shadow-lg">
+                        <span class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+                        <span id="hud-gesture-state">未偵測到手勢</span>
+                    </div>
+
+                    <!-- 魔法模式：Boss 血條 -->
+                    <div id="boss-container" class="hidden w-64 bg-slate-900/95 border border-red-500/20 p-3 rounded-2xl shadow-xl flex-col gap-1.5 backdrop-blur-md">
+                        <div class="flex justify-between text-xs font-semibold">
+                            <span class="text-red-400 flex items-center gap-1">😈 闇黑魔王 Boss</span>
+                            <span id="boss-hp-text" class="font-['Orbitron']">100%</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+                            <div id="boss-hp-bar" class="bg-gradient-to-r from-red-500 to-rose-600 h-full w-full transition-all duration-300"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 中部 HUD (互動式簡報、影偶等) -->
+                <div id="hud-center" class="w-full flex-1 flex items-center justify-center relative">
+                    
+                    <!-- 簡報/食譜投影片組 -->
+                    <div id="presentation-slide" class="hidden w-11/12 max-w-lg bg-slate-900/95 border border-indigo-500/30 p-6 rounded-2xl shadow-2xl backdrop-blur-md flex-col justify-between aspect-[4/3] pointer-events-auto transition-transform duration-500 transform scale-100">
+                        <div class="flex justify-between items-center pb-3 border-b border-indigo-500/20">
+                            <span class="text-xs font-bold text-indigo-400 tracking-widest font-['Orbitron']" id="slide-category">INTERACTIVE AID</span>
+                            <span class="text-xs text-slate-400 font-['Orbitron']" id="slide-number">01 / 04</span>
+                        </div>
+                        <div class="my-6">
+                            <h3 class="text-xl font-extrabold text-white mb-3" id="slide-title">第 1 頁：未來科技與隔空互動</h3>
+                            <p class="text-xs text-slate-300 leading-relaxed" id="slide-content">
+                                歡迎來到手勢簡報系統！在做菜、手術或簡報時，您的雙手不需接觸螢幕。向左快速揮手(Swipe Left)可跳至下一頁，向右揮手可退回上一頁。
+                            </p>
+                        </div>
+                        <div class="flex justify-between items-center pt-3 border-t border-indigo-500/10 text-[10px] text-slate-400">
+                            <span>💡 食指捏合可以縮放頁面</span>
+                            <span>靜音手勢：食指置中貼近</span>
+                        </div>
+                    </div>
+
+                    <!-- 數位偶戲館：兔子 SVG 布偶 -->
+                    <div id="puppet-container" class="hidden w-72 h-72 relative items-center justify-center">
+                        <svg id="puppet-svg" class="w-full h-full" viewBox="0 0 200 200">
+                            <!-- 兔子耳朵左 -->
+                            <path id="ear-l" d="M 80,60 C 70,20 90,10 90,60 Z" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2"/>
+                            <path id="ear-l-inner" d="M 82,55 C 75,30 87,20 87,55 Z" fill="#fda4af"/>
+                            <!-- 兔子耳朵右 -->
+                            <path id="ear-r" d="M 120,60 C 130,20 110,10 110,60 Z" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2"/>
+                            <path id="ear-r-inner" d="M 118,55 C 125,30 113,20 113,55 Z" fill="#fda4af"/>
+                            <!-- 身體 -->
+                            <ellipse id="puppet-body" cx="100" cy="140" rx="35" ry="45" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2"/>
+                            <ellipse id="puppet-belly" cx="100" cy="145" rx="20" ry="25" fill="#f8fafc"/>
+                            <!-- 頭部 -->
+                            <circle id="puppet-head" cx="100" cy="95" r="30" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2"/>
+                            <!-- 眼睛 -->
+                            <circle id="eye-l" cx="90" cy="90" r="3.5" fill="#334155"/>
+                            <circle id="eye-r" cx="110" cy="90" r="3.5" fill="#334155"/>
+                            <!-- 腮紅 -->
+                            <circle cx="85" cy="98" r="4" fill="#fecdd3" opacity="0.8"/>
+                            <circle cx="115" cy="98" r="4" fill="#fecdd3" opacity="0.8"/>
+                            <!-- 鼻子嘴巴 -->
+                            <path d="M 98,98 L 102,98 L 100,100 Z" fill="#fda4af"/>
+                            <path d="M 97,103 Q 100,106 100,103 Q 100,106 103,103" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/>
+                            <!-- 左手 (腳) -->
+                            <ellipse id="puppet-hand-l" cx="60" cy="130" rx="12" ry="8" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2"/>
+                            <!-- 右手 (腳) -->
+                            <ellipse id="puppet-hand-r" cx="140" cy="130" rx="12" ry="8" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- 底部 HUD (控制資訊提示) -->
+                <div id="hud-bottom" class="w-full flex justify-between items-center text-xs">
+                    <div class="bg-indigo-950/80 backdrop-blur border border-indigo-500/30 text-indigo-200 px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 max-w-sm">
+                        <i data-lucide="mouse-pointer-click" class="w-4 h-4 text-indigo-400"></i>
+                        <span>無相機？可在畫布上點擊或拖曳來模擬操作喔！</span>
+                    </div>
+                    
+                    <button id="btn-clear-canvas" class="hidden px-4 py-2 bg-slate-900 border border-slate-700 hover:border-pink-500 hover:text-pink-400 transition-all rounded-xl pointer-events-auto flex items-center gap-1.5 shadow-lg">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> 清除畫布
+                    </button>
+                </div>
+            </div>
+
+            <!-- 自訂全螢幕通知彈窗 (不使用瀏覽器 alert) -->
+            <div id="custom-modal" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-8 text-center transition-all">
+                <div class="p-4 bg-indigo-500/10 rounded-full border border-indigo-500/30 text-indigo-400 mb-4 animate-bounce">
+                    <i data-lucide="info" class="w-12 h-12"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-2 text-indigo-300 font-['Orbitron']" id="modal-title">系統提示</h3>
+                <p class="text-sm text-slate-300 max-w-md leading-relaxed mb-6" id="modal-desc">說明訊息</p>
+                <button onclick="closeModal()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/30">
+                    我知道了
+                </button>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- 網頁背景音頻啟動遮罩 (使用者點擊即啟動音訊) -->
+    <div id="audio-scrim" class="absolute inset-0 bg-slate-950/95 z-50 flex flex-col items-center justify-center text-center p-6">
+        <div class="p-6 bg-indigo-500/10 rounded-3xl border border-indigo-500/20 shadow-2xl max-w-md">
+            <div class="w-20 h-20 bg-indigo-600/20 rounded-full border border-indigo-500/40 flex items-center justify-center mx-auto mb-6 text-indigo-400 animate-pulse">
+                <i data-lucide="music-4" class="w-10 h-10"></i>
+            </div>
+            <h2 class="text-2xl font-black mb-3 text-indigo-200">開啟魔法體感之旅</h2>
+            <p class="text-sm text-slate-400 leading-relaxed mb-6">
+                本網頁包含高保真 **Web Audio 音響和弦** 與 **AI 手勢追蹤** 特效。請點擊下方按鈕啟動聲音引擎。
+            </p>
+            <button onclick="startApp()" class="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 active:scale-[0.98] transition-all text-white font-extrabold rounded-2xl shadow-xl shadow-indigo-600/30 tracking-widest uppercase">
+                立刻啟動
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 初始化 Lucide 圖標 ---
+        lucide.createIcons();
+
+        // --- 全域變數定義 ---
+        let activeMode = 'conductor'; // conductor, painter, spell, presentation, puppet
+        let isCameraActive = false;
+        let webcamElement = document.getElementById('webcam');
+        let canvasElement = document.getElementById('magic-canvas');
+        let canvasCtx = canvasElement.getContext('2d');
+        
+        // 畫布寬高管理
+        let width = canvasElement.width = 800;
+        let height = canvasElement.height = 600;
+
+        // 粒子系統與繪圖資料
+        let particles = [];
+        let drawingLines = []; // { points: [{x, y}], color, width }
+        let currentBrushColor = '#ec4899'; // 桃紅色
+        let isDrawing = false;
+        
+        // 音訊系統變數
+        let audioCtx = null;
+        let synthActiveNodes = {}; // 用於持續音符
+        let filterNode = null;
+        let mainVolume = null;
+
+        // 手勢平滑與動態計算變數
+        let lastHandPos = { x: 0.5, y: 0.5 };
+        let handVelocity = { x: 0, y: 0 };
+        let swipeHistory = []; // {x, time}
+        let bossHP = 100;
+        let lastShieldTime = 0;
+        let currentSlideIdx = 0;
+        let slideScale = 1.0;
+        let isMuted = false;
+
+        // 模擬手部位置 (用於滑鼠)
+        let mouseSimulatedHand = {
+            active: false,
+            x: 0.5,
+            y: 0.5,
+            isPinching: false,
+            fingerCount: 5,
+            time: 0
+        };
+
+        // 簡報投影片資料
+        const slidesData = [
+            {
+                category: "1. 魔法指揮家 (Conductor)",
+                title: "用雙手譜寫感應音符與聲律",
+                content: "Web Audio 結合空氣鋼琴。右手伸出的指尖數控制音高和弦 (Do - Sol)，捏合手指 (Pinch) 觸發撥弦音。左手的高度控制音量大小，掌心張合控制音色濾鏡（Cutoff Filter），聲音隨動作忽悶忽亮！"
+            },
+            {
+                category: "2. 空氣 3D 雕塑家 (3D Painter)",
+                title: "解鎖空氣作畫，畫布就是三維空間",
+                content: "當右手大拇指與食指緊密捏合（Pinch，距離極近）即開始「下筆畫圖」，在空氣中移動便會留下璀璨的霓虹發光軌跡與粒子消散。左手比出 'OK' 即可隨時更換絢麗的筆刷色彩。"
+            },
+            {
+                category: "3. 手勢對決魔法師 (Spell Duel)",
+                title: "召喚四大法陣！擊倒闇黑魔王",
+                content: "化身科技法師！雙手全開展開「寒冰護盾」防禦攻擊；雙手握拳再瞬間張開射出「地獄火球」；比出剪刀手召喚「萬雷天引」擊退 Boss；雙手合十字能「自然治癒」為自己補充魔力。"
+            },
+            {
+                category: "4. 數位偶戲館 (Puppetry)",
+                title: "手指關節連動，賦予小兔子生命",
+                content: "這是有創意的皮影戲！MediaPipe 抓取的指尖骨架會與畫面上的 SVG 兔子布偶四肢綁定。動動大拇指和小拇指操控它的雙手，動動食指和中指能擺動它的長耳朵！"
+            }
+        ];
+
+        // 模式操作指南文字
+        const modeInstructionsText = {
+            conductor: "【魔法指揮家】\n• 右手手指伸出 1~5 指演奏音符\n• 右手捏合 (Pinch) 觸發撥撥音\n• 左手上下移動控制【主音量】\n• 左手握拳到開掌控制【音色濾鏡】",
+            painter: "【空氣 3D 雕塑家】\n• 右手拇指與食指「捏合 (Pinch)」即下筆繪圖\n• 放開即停筆\n• 左手比「OK 標誌」可循環切換發光筆刷顏色\n• 按右下角按鈕可清除畫布",
+            spell: "【手勢對決魔法師】\n• 雙手全開 10 指：召喚【防禦護盾】\n• 雙手握拳後猛然全開：射出【地獄火球】\n• 比出「剪刀手 2」：召喚【萬雷天引】\n• 雙手合十/交叉：釋放【自然治癒】",
+            presentation: "【簡報與生活助手】\n• 單手快速朝左/朝右揮動：投影片【翻頁】\n• 雙手捏合並拉開/靠近：【縮放簡報】\n• 食指貼近中心（噤聲手勢）：【一鍵靜音】",
+            puppet: "【數位偶戲館】\n• 動動食指、中指：操控兔子左右耳朵擺動\n• 動動大拇指、小拇指：操控兔子左右手擺動\n• 手掌移動：兔子整隻跟著移動與晃動"
+        };
+
+        // --- 音頻引擎初始化與合成器 ---
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 主音量與低通濾波器
+            mainVolume = audioCtx.createGain();
+            mainVolume.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            
+            filterNode = audioCtx.createBiquadFilter();
+            filterNode.type = 'lowpass';
+            filterNode.frequency.setValueAtTime(1200, audioCtx.currentTime);
+            filterNode.Q.setValueAtTime(3, audioCtx.currentTime);
+
+            filterNode.connect(mainVolume);
+            mainVolume.connect(audioCtx.destination);
+        }
+
+        // 撥弦 (Pluck) 音效
+        function triggerPluck(freq) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+            
+            osc.connect(gain);
+            gain.connect(filterNode);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.6);
+        }
+
+        // 持續音 (Pad) 播放與和弦
+        function updateSynthesizer(fingerCount, leftHandY) {
+            if (!audioCtx || isMuted) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            // 根據左手高度 Y 調整總音量 (Y 是 0~1，反過來控制音量)
+            let vol = (1 - leftHandY) * 0.3;
+            vol = Math.max(0.01, Math.min(0.4, vol));
+            mainVolume.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
+
+            // 定義五種手指對應的和弦 (C 大調 pentatonic)
+            const chords = {
+                1: [261.63], // Do (C4)
+                2: [293.66], // Re (D4)
+                3: [329.63], // Mi (E4)
+                4: [392.00], // Sol (G4)
+                5: [440.00]  // La (A4)
+            };
+
+            let targetFreqs = chords[fingerCount] || [];
+
+            // 停用不在目前名單中的頻率
+            Object.keys(synthActiveNodes).forEach(freq => {
+                if (!targetFreqs.includes(parseFloat(freq))) {
+                    try {
+                        synthActiveNodes[freq].gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+                        setTimeout(() => {
+                            if (synthActiveNodes[freq]) {
+                                synthActiveNodes[freq].osc.stop();
+                                delete synthActiveNodes[freq];
+                            }
+                        }, 150);
+                    } catch(e){}
+                }
+            });
+
+            // 啟動新增的頻率
+            targetFreqs.forEach(freq => {
+                if (!synthActiveNodes[freq]) {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    
+                    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain.gain.setTargetAtTime(0.08, audioCtx.currentTime, 0.2);
+                    
+                    osc.connect(gain);
+                    gain.connect(filterNode);
+                    osc.start();
+                    
+                    synthActiveNodes[freq] = { osc, gain };
+                }
+            });
+        }
+
+        function stopAllSynthNotes() {
+            Object.keys(synthActiveNodes).forEach(freq => {
+                try {
+                    synthActiveNodes[freq].osc.stop();
+                } catch(e){}
+                delete synthActiveNodes[freq];
+            });
+        }
+
+        // --- 自訂 UI 通知彈窗 ---
+        function showModal(title, desc) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+
+        // --- 應用程式與音訊啟動 ---
+        function startApp() {
+            initAudio();
+            document.getElementById('audio-scrim').classList.add('hidden');
+            // 預設切換至指揮家模式
+            switchMode('conductor');
+            
+            // 自動偵測視窗大小並重設畫布
+            window.addEventListener('resize', handleResize);
+            handleResize();
+        }
+
+        function handleResize() {
+            width = canvasElement.width = canvasElement.parentElement.clientWidth;
+            height = canvasElement.height = canvasElement.parentElement.clientHeight;
+        }
+
+        // --- 模式切換邏輯 ---
+        function switchMode(mode) {
+            activeMode = mode;
+            stopAllSynthNotes();
+
+            // 更新 UI 選取項狀態
+            const modes = ['conductor', 'painter', 'spell', 'presentation', 'puppet'];
+            modes.forEach(m => {
+                const btn = document.getElementById(`btn-mode-${m}`);
+                if (btn) {
+                    if (m === mode) {
+                        btn.classList.add('neon-border-active', 'bg-indigo-950/40', 'border-indigo-500/50');
+                        btn.classList.remove('bg-slate-800/40', 'border-transparent');
+                    } else {
+                        btn.classList.remove('neon-border-active', 'bg-indigo-950/40', 'border-indigo-500/50');
+                        btn.classList.add('bg-slate-800/40', 'border-transparent');
+                    }
+                }
+            });
+
+            // 更新提示字眼
+            document.getElementById('mode-instructions').innerText = modeInstructionsText[mode];
+
+            // 調整 HUD 顯示
+            document.getElementById('boss-container').classList.add('hidden');
+            document.getElementById('presentation-slide').classList.add('hidden');
+            document.getElementById('puppet-container').classList.add('hidden');
+            document.getElementById('btn-clear-canvas').classList.add('hidden');
+
+            if (mode === 'spell') {
+                document.getElementById('boss-container').classList.remove('hidden');
+                document.getElementById('boss-container').style.display = 'flex';
+                bossHP = 100;
+                updateBossHP(0);
+            } else if (mode === 'presentation') {
+                document.getElementById('presentation-slide').classList.remove('hidden');
+                document.getElementById('presentation-slide').style.display = 'flex';
+                updateSlide();
+            } else if (mode === 'puppet') {
+                document.getElementById('puppet-container').classList.remove('hidden');
+                document.getElementById('puppet-container').style.display = 'flex';
+            } else if (mode === 'painter') {
+                document.getElementById('btn-clear-canvas').classList.remove('hidden');
+            }
+        }
+
+        // --- 清除畫布按鈕 ---
+        document.getElementById('btn-clear-canvas').onclick = () => {
+            drawingLines = [];
+            particles = [];
+        };
+
+        // --- 粒子系統機制 ---
+        function spawnParticle(x, y, color, speed = 2, size = 6, life = 1) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * speed,
+                vy: (Math.random() - 0.5) * speed,
+                color: color,
+                size: Math.random() * size + 2,
+                life: life,
+                maxLife: life
+            });
+        }
+
+        // --- 魔法對決 Boss 血量控制 ---
+        function updateBossHP(damage) {
+            bossHP = Math.max(0, bossHP - damage);
+            const bar = document.getElementById('boss-hp-bar');
+            const txt = document.getElementById('boss-hp-text');
+            bar.style.width = `${bossHP}%`;
+            txt.innerText = `${bossHP}%`;
+
+            if (bossHP <= 0) {
+                showModal("🎉 恭喜大獲全勝！", "您以精湛的空氣魔法手勢擊敗了闇黑魔王！請切換其他模式繼續體驗，或稍後再戰。");
+                bossHP = 100;
+                setTimeout(() => { updateBossHP(0); }, 3000);
+            }
+        }
+
+        // --- 簡報與生活助理狀態更新 ---
+        function updateSlide() {
+            const slide = slidesData[currentSlideIdx];
+            document.getElementById('slide-category').innerText = slide.category;
+            document.getElementById('slide-number').innerText = `0${currentSlideIdx + 1} / 04`;
+            document.getElementById('slide-title').innerText = slide.title;
+            document.getElementById('slide-content').innerText = slide.content;
+
+            const el = document.getElementById('presentation-slide');
+            el.style.transform = `scale(${slideScale})`;
+        }
+
+        function triggerNextSlide() {
+            currentSlideIdx = (currentSlideIdx + 1) % slidesData.length;
+            updateSlide();
+            playTone(440, 0.1, 'sine');
+        }
+
+        function triggerPrevSlide() {
+            currentSlideIdx = (currentSlideIdx - 1 + slidesData.length) % slidesData.length;
+            updateSlide();
+            playTone(330, 0.1, 'sine');
+        }
+
+        function playTone(freq, dur, type='sine') {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+            osc.connect(g);
+            g.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + dur);
+        }
+
+        // --- 骨架對應皮影兔子的動態綁定 ---
+        function updatePuppet(handLandmarks) {
+            if (!handLandmarks || handLandmarks.length === 0) return;
+            
+            // 抓取右手 (右手一般在左邊或右邊，視鏡像而定)
+            const hand = handLandmarks[0];
+            const wrist = hand[0];
+            
+            // 骨架關節
+            const thumbTip = hand[4];
+            const indexTip = hand[8];
+            const middleTip = hand[12];
+            const pinkyTip = hand[20];
+
+            // 映射到畫面上
+            const baseW = 100 + (0.5 - wrist.x) * 150;
+            const baseH = 120 + (wrist.y - 0.5) * 150;
+
+            const earL = document.getElementById('ear-l');
+            const earLIn = document.getElementById('ear-l-inner');
+            const earR = document.getElementById('ear-r');
+            const earRIn = document.getElementById('ear-r-inner');
+            
+            const puppetHandL = document.getElementById('puppet-hand-l');
+            const puppetHandR = document.getElementById('puppet-hand-r');
+            const puppetBody = document.getElementById('puppet-body');
+            const puppetBelly = document.getElementById('puppet-belly');
+            const puppetHead = document.getElementById('puppet-head');
+            const eyeL = document.getElementById('eye-l');
+            const eyeR = document.getElementById('eye-r');
+
+            // 1. 耳朵擺動 (連動食指、中指)
+            // 手指伸直高度（對應手腕）決定耳朵立起度
+            const leftEarBend = Math.max(-20, Math.min(60, (indexTip.y - wrist.y + 0.5) * 100));
+            const rightEarBend = Math.max(-20, Math.min(60, (middleTip.y - wrist.y + 0.5) * 100));
+
+            earL.setAttribute('d', `M 80,60 C ${70 - leftEarBend},${20 + leftEarBend} 90,10 90,60 Z`);
+            earLIn.setAttribute('d', `M 82,55 C ${75 - leftEarBend},${30 + leftEarBend} 87,20 87,55 Z`);
+            earR.setAttribute('d', `M 120,60 C ${130 + rightEarBend},${20 + rightEarBend} 110,10 110,60 Z`);
+            earRIn.setAttribute('d', `M 118,55 C ${125 + rightEarBend},${30 + rightEarBend} 113,20 113,55 Z`);
+
+            // 2. 兔子雙手上下 (連動大拇指、小拇指)
+            const leftHandY = 130 + (thumbTip.y - wrist.y + 0.2) * 80;
+            const rightHandY = 130 + (pinkyTip.y - wrist.y + 0.2) * 80;
+            
+            puppetHandL.setAttribute('cy', leftHandY);
+            puppetHandR.setAttribute('cy', rightHandY);
+
+            // 3. 整隻兔子隨手腕移動
+            const svg = document.getElementById('puppet-svg');
+            svg.style.transform = `translate(${(0.5 - wrist.x) * 100}px, ${(wrist.y - 0.5) * 100}px) rotate(${(0.5 - indexTip.x) * 30}deg)`;
+        }
+
+        // --- 滑鼠模擬手部模式 ---
+        let isMouseDown = false;
+        canvasElement.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            initAudio();
+            mouseSimulatedHand.active = true;
+            mouseSimulatedHand.isPinching = true;
+            handleMouseInteraction(e);
+        });
+
+        canvasElement.addEventListener('mousemove', (e) => {
+            if (!mouseSimulatedHand.active && !isMouseDown) return;
+            handleMouseInteraction(e);
+        });
+
+        canvasElement.addEventListener('mouseup', () => {
+            isMouseDown = false;
+            mouseSimulatedHand.isPinching = false;
+            stopAllSynthNotes();
+        });
+
+        canvasElement.addEventListener('mouseleave', () => {
+            isMouseDown = false;
+            mouseSimulatedHand.isPinching = false;
+            stopAllSynthNotes();
+        });
+
+        function handleMouseInteraction(e) {
+            const rect = canvasElement.getBoundingClientRect();
+            // 在鏡像畫布上計算滑鼠 X
+            const mouseX = 1 - (e.clientX - rect.left) / rect.width;
+            const mouseY = (e.clientY - rect.top) / rect.height;
+
+            mouseSimulatedHand.x = mouseX;
+            mouseSimulatedHand.y = mouseY;
+
+            // 根據 X 軸控制手指數量模擬
+            mouseSimulatedHand.fingerCount = Math.min(5, Math.max(0, Math.floor(mouseX * 6)));
+            
+            // 驅動音效、作畫或對決
+            processInteractiveFrame({
+                multiHandLandmarks: [
+                    // 模擬單手
+                    Array.from({length: 21}, (_, i) => {
+                        if (i === 4) return { x: mouseX + 0.02, y: mouseY, z: 0 }; // 拇指
+                        if (i === 8) return { x: mouseX, y: mouseY, z: 0 }; // 食指
+                        if (i === 12) return { x: mouseX + 0.03, y: mouseY + 0.05, z: 0 }; // 中指
+                        return { x: mouseX + (i*0.01), y: mouseY + (i*0.01), z: 0 };
+                    })
+                ],
+                multiHandedness: [{ label: 'Right' }]
+            });
+        }
+
+
+        // --- 核心手勢計算與渲染 (MediaPipe 與 模擬 共用) ---
+        function processInteractiveFrame(results) {
+            // 清理畫布
+            canvasCtx.clearRect(0, 0, width, height);
+
+            let hasHands = results && results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
+            const hudState = document.getElementById('hud-gesture-state');
+            
+            if (hasHands) {
+                hudState.innerText = `偵測到雙手手勢 (${results.multiHandLandmarks.length} 手)`;
+                hudState.parentElement.classList.remove('border-slate-800');
+                hudState.parentElement.classList.add('border-indigo-500/50');
+            } else {
+                hudState.innerText = "未偵測到手勢，使用模擬操作";
+                hudState.parentElement.classList.add('border-slate-800');
+                hudState.parentElement.classList.remove('border-indigo-500/50');
+            }
+
+            // --- 畫布背景、格線與特效繪製 ---
+            drawCanvasFrame();
+
+            // 如果有偵測到實際雙手
+            if (hasHands) {
+                let rightHand = null;
+                let leftHand = null;
+
+                for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+                    const landmarks = results.multiHandLandmarks[i];
+                    const handedness = results.multiHandedness[i].label; // Left or Right
+                    
+                    // 因為相機經過 scaleX(-1) 鏡像，實際左手在螢幕右邊，MediaPipe 的辨識結果也會顛倒
+                    if (handedness === 'Left') {
+                        rightHand = landmarks;
+                    } else {
+                        leftHand = landmarks;
+                    }
+
+                    // 繪製科技發光手部骨架
+                    drawGlowingSkeleton(landmarks, handedness === 'Left' ? '#818cf8' : '#34d399');
+                }
+
+                // 根據當前模式執行互動
+                if (activeMode === 'conductor') {
+                    // 1. 魔法指揮家模式
+                    let rCount = rightHand ? countFingers(rightHand, 'Right') : 0;
+                    let lCount = leftHand ? countFingers(leftHand, 'Left') : 0;
+                    
+                    let leftHandY = leftHand ? leftHand[0].y : 0.5;
+
+                    // 捏合撥弦檢測
+                    if (rightHand) {
+                        const isPinching = checkPinch(rightHand);
+                        if (isPinching && !isDrawing) {
+                            isDrawing = true;
+                            // 觸發隨機頻率撥弦音
+                            let freq = 261.63 * Math.pow(1.059463, Math.floor(Math.random() * 12));
+                            triggerPluck(freq);
+                            // 噴射金色粒子
+                            for (let p=0; p<15; p++) {
+                                spawnParticle(rightHand[8].x * width, rightHand[8].y * height, '#fbbf24', 4, 8);
+                            }
+                        } else if (!isPinching) {
+                            isDrawing = false;
+                        }
+                    }
+
+                    // 控制音色低通濾波頻率
+                    if (leftHand && filterNode) {
+                        // 左手張開度 (0~5根手指)
+                        let filterFreq = 200 + (lCount / 5) * 3000;
+                        filterNode.frequency.setTargetAtTime(filterFreq, audioCtx.currentTime, 0.1);
+                    }
+
+                    // 更新音效
+                    updateSynthesizer(rCount, leftHandY);
+
+                } else if (activeMode === 'painter') {
+                    // 2. 空氣 3D 雕塑家
+                    if (rightHand) {
+                        const isPinching = checkPinch(rightHand);
+                        const tipX = rightHand[8].x * width;
+                        const tipY = rightHand[8].y * height;
+
+                        // 更換筆刷顏色檢測：左手比 OK 手勢
+                        if (leftHand && checkOKGesture(leftHand)) {
+                            const colors = ['#f472b6', '#38bdf8', '#fbbf24', '#34d399', '#a78bfa'];
+                            // 每隔一段時間變更顏色
+                            if (Math.random() < 0.05) {
+                                currentBrushColor = colors[Math.floor(Math.random() * colors.length)];
+                                // 噴彩色煙霧
+                                for(let s=0; s<10; s++) spawnParticle(leftHand[8].x*width, leftHand[8].y*height, currentBrushColor, 2, 4);
+                            }
+                        }
+
+                        if (isPinching) {
+                            if (drawingLines.length === 0 || drawingLines[drawingLines.length - 1].finished) {
+                                drawingLines.push({ points: [], color: currentBrushColor, width: 6 });
+                            }
+                            const currLine = drawingLines[drawingLines.length - 1];
+                            currLine.points.push({ x: tipX, y: tipY });
+
+                            // 產生畫筆軌跡粒子
+                            spawnParticle(tipX, tipY, currentBrushColor, 1.5, 5, 0.8);
+                        } else {
+                            if (drawingLines.length > 0 && !drawingLines[drawingLines.length - 1].finished) {
+                                drawingLines[drawingLines.length - 1].finished = true;
+                            }
+                        }
+                    }
+                } else if (activeMode === 'spell') {
+                    // 3. 手勢對決魔法師
+                    let rCount = rightHand ? countFingers(rightHand, 'Right') : -1;
+                    let lCount = leftHand ? countFingers(leftHand, 'Left') : -1;
+
+                    // A. 防禦護盾 (10指全開)
+                    if (rCount === 5 && lCount === 5) {
+                        drawSpellShield(rightHand[0].x * width, rightHand[0].y * height);
+                        drawSpellShield(leftHand[0].x * width, leftHand[0].y * height);
+                        lastShieldTime = Date.now();
+                    }
+
+                    // B. 火球術 (握拳 0 指後瞬間張開)
+                    if (rightHand) {
+                        const isPinching = checkPinch(rightHand);
+                        if (rCount === 0) {
+                            // 集氣階段
+                            drawSpellCharging(rightHand[0].x*width, rightHand[0].y*height, '#f97316');
+                            if (Math.random() < 0.2) playTone(150, 0.1, 'sawtooth');
+                        } else if (rCount === 5 && !isDrawing) {
+                            // 瞬間推掌釋放火球
+                            triggerFireball(rightHand[8].x * width, rightHand[8].y * height);
+                            isDrawing = true;
+                            updateBossHP(12);
+                        } else if (rCount !== 5) {
+                            isDrawing = false;
+                        }
+                    }
+
+                    // C. 雷擊術 (單手剪刀手)
+                    if (rightHand && rCount === 2) {
+                        triggerLightning(rightHand[8].x * width, rightHand[8].y * height);
+                        updateBossHP(5);
+                    }
+
+                    // D. 治療術 (合十字或交叉)
+                    if (rightHand && leftHand) {
+                        const dist = Math.hypot(rightHand[0].x - leftHand[0].x, rightHand[0].y - leftHand[0].y);
+                        if (dist < 0.15) {
+                            triggerHeal((rightHand[0].x + leftHand[0].x)/2 * width, (rightHand[0].y + leftHand[0].y)/2 * height);
+                        }
+                    }
+
+                } else if (activeMode === 'presentation') {
+                    // 4. 簡報與生活助理
+                    if (rightHand) {
+                        const indexTip = rightHand[8];
+                        
+                        // 滑動翻頁檢測 (基於 X 軸移動速度)
+                        const now = Date.now();
+                        swipeHistory.push({ x: indexTip.x, time: now });
+                        if (swipeHistory.length > 10) swipeHistory.shift();
+
+                        if (swipeHistory.length >= 5) {
+                            const first = swipeHistory[0];
+                            const last = swipeHistory[swipeHistory.length - 1];
+                            const dt = (last.time - first.time) / 1000;
+                            const dx = last.x - first.x;
+                            const speed = dx / dt; // X 座標變化速度
+
+                            if (Math.abs(speed) > 1.8 && dt < 0.5) {
+                                if (speed > 1.8) {
+                                    triggerNextSlide();
+                                    swipeHistory = []; // 清空避免重複觸發
+                                } else if (speed < -1.8) {
+                                    triggerPrevSlide();
+                                    swipeHistory = [];
+                                }
+                            }
+                        }
+
+                        // 食指直立噤聲手勢 (在畫面中央且其他手指握拳)
+                        const rCount = countFingers(rightHand, 'Right');
+                        const isMuteGesture = (rCount === 1 && Math.abs(indexTip.x - 0.5) < 0.15);
+                        
+                        if (isMuteGesture && !isMuted) {
+                            isMuted = true;
+                            document.getElementById('slide-category').innerText = "⚠️ 系統：已進入靜音模式";
+                            document.getElementById('slide-category').style.color = '#f87171';
+                            playTone(120, 0.4, 'sine');
+                        } else if (!isMuteGesture && isMuted) {
+                            isMuted = false;
+                            document.getElementById('slide-category').innerText = slidesData[currentSlideIdx].category;
+                            document.getElementById('slide-category').style.color = '#818cf8';
+                        }
+
+                        // 雙手捏合縮放 (Pinch to Zoom)
+                        if (leftHand) {
+                            const rPinch = checkPinch(rightHand);
+                            const lPinch = checkPinch(leftHand);
+                            if (rPinch && lPinch) {
+                                const dist = Math.hypot(rightHand[8].x - leftHand[8].x, rightHand[8].y - leftHand[8].y);
+                                slideScale = Math.max(0.7, Math.min(1.3, dist * 2.5));
+                                updateSlide();
+                            }
+                        }
+                    }
+                } else if (activeMode === 'puppet') {
+                    // 5. 數位偶戲館
+                    updatePuppet(results.multiHandLandmarks);
+                }
+
+            } else {
+                // 沒有攝影機，使用滑鼠模擬狀態
+                if (mouseSimulatedHand.active) {
+                    drawSimulatedHand();
+                }
+            }
+
+            // 繪製與更新動態粒子
+            updateAndDrawParticles();
+
+            // 繪製靜態手作線條 (3D 雕塑)
+            drawPaintLines();
+        }
+
+        // --- 繪製手勢與畫布底層裝飾 ---
+        function drawCanvasFrame() {
+            canvasCtx.shadowBlur = 0;
+            // 模式文字浮水印
+            canvasCtx.fillStyle = 'rgba(129, 140, 248, 0.05)';
+            canvasCtx.font = "bold 40px 'Orbitron'";
+            canvasCtx.textAlign = 'center';
+            canvasCtx.fillText(`MODE: ${activeMode.toUpperCase()}`, width / 2, height / 2);
+        }
+
+        // --- 繪製 MediaPipe 手骨架與發光效果 ---
+        function drawGlowingSkeleton(landmarks, color) {
+            canvasCtx.shadowBlur = 15;
+            canvasCtx.shadowColor = color;
+            canvasCtx.strokeStyle = color;
+            canvasCtx.lineWidth = 4;
+            canvasCtx.fillStyle = '#ffffff';
+
+            // 手掌骨架連接點拓撲
+            const connections = [
+                [0,1], [1,2], [2,3], [3,4],
+                [0,5], [5,6], [6,7], [7,8],
+                [5,9], [9,10], [10,11], [11,12],
+                [9,13], [13,14], [14,15], [15,16],
+                [13,17], [17,18], [18,19], [19,20], [0,17]
+            ];
+
+            // 畫關節線
+            connections.forEach(([p1, p2]) => {
+                canvasCtx.beginPath();
+                canvasCtx.moveTo(landmarks[p1].x * width, landmarks[p1].y * height);
+                canvasCtx.lineTo(landmarks[p2].x * width, landmarks[p2].y * height);
+                canvasCtx.stroke();
+            });
+
+            // 畫指尖小亮點
+            for (let i = 0; i < 21; i++) {
+                canvasCtx.beginPath();
+                canvasCtx.arc(landmarks[i].x * width, landmarks[i].y * height, 4, 0, 2 * Math.PI);
+                canvasCtx.fill();
+            }
+            canvasCtx.shadowBlur = 0;
+        }
+
+        // --- 偵測手指伸出數量 (MediaPipe) ---
+        function countFingers(landmarks, handType) {
+            let count = 0;
+            // 指尖與第一關節節點 ID
+            const tipIds = [8, 12, 16, 20];
+            
+            // 四隻長手指
+            tipIds.forEach(tipId => {
+                if (landmarks[tipId].y < landmarks[tipId - 2].y) {
+                    count++;
+                }
+            });
+
+            // 拇指 (判斷 X 軸偏移，須依據左/右手方向)
+            const thumbTip = landmarks[4];
+            const thumbIp = landmarks[3];
+            if (handType === 'Right') {
+                if (thumbTip.x < thumbIp.x) count++;
+            } else {
+                if (thumbTip.x > thumbIp.x) count++;
+            }
+
+            return count;
+        }
+
+        // --- 偵測大拇指與食指是否捏合 (Pinch) ---
+        function checkPinch(landmarks) {
+            const thumbTip = landmarks[4];
+            const indexTip = landmarks[8];
+            const dist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+            return dist < 0.04; // 閥值
+        }
+
+        // --- 偵測左手是否比 OK 手勢 ---
+        function checkOKGesture(landmarks) {
+            const isPinching = checkPinch(landmarks);
+            const middleTip = landmarks[12];
+            const ringTip = landmarks[16];
+            const wrist = landmarks[0];
+            // 其他手指挺立
+            const fingersUp = (middleTip.y < wrist.y) && (ringTip.y < wrist.y);
+            return isPinching && fingersUp;
+        }
+
+        // --- 繪製畫布線條 ---
+        function drawPaintLines() {
+            drawingLines.forEach(line => {
+                if (line.points.length < 2) return;
+                canvasCtx.beginPath();
+                canvasCtx.shadowBlur = 12;
+                canvasCtx.shadowColor = line.color;
+                canvasCtx.strokeStyle = line.color;
+                canvasCtx.lineWidth = line.width;
+                canvasCtx.lineCap = 'round';
+                canvasCtx.lineJoin = 'round';
+
+                canvasCtx.moveTo(line.points[0].x, line.points[0].y);
+                for (let i = 1; i < line.points.length; i++) {
+                    canvasCtx.lineTo(line.points[i].x, line.points[i].y);
+                }
+                canvasCtx.stroke();
+            });
+            canvasCtx.shadowBlur = 0;
+        }
+
+        // --- 繪製與升級粒子特效 ---
+        function updateAndDrawParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                canvasCtx.beginPath();
+                canvasCtx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2);
+                canvasCtx.fillStyle = p.color;
+                canvasCtx.shadowBlur = 10;
+                canvasCtx.shadowColor = p.color;
+                canvasCtx.globalAlpha = p.life;
+                canvasCtx.fill();
+            }
+            canvasCtx.globalAlpha = 1.0;
+            canvasCtx.shadowBlur = 0;
+        }
+
+        // --- 模擬手勢繪製 (滑鼠模式下使用) ---
+        function drawSimulatedHand() {
+            const tx = mouseSimulatedHand.x * width;
+            const ty = mouseSimulatedHand.y * height;
+
+            // 繪製模擬光環
+            canvasCtx.beginPath();
+            canvasCtx.arc(tx, ty, 15, 0, Math.PI * 2);
+            canvasCtx.strokeStyle = 'rgba(129, 140, 248, 0.6)';
+            canvasCtx.lineWidth = 2;
+            canvasCtx.stroke();
+
+            canvasCtx.beginPath();
+            canvasCtx.arc(tx, ty, 5, 0, Math.PI * 2);
+            canvasCtx.fillStyle = '#818cf8';
+            canvasCtx.fill();
+
+            // 說明字樣
+            canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            canvasCtx.font = "bold 12px 'Orbitron'";
+            canvasCtx.fillText("SIMULATED HAND", tx, ty - 25);
+        }
+
+        // --- 魔法陣特效家族 ---
+        
+        // 1. 防禦護盾
+        function drawSpellShield(cx, cy) {
+            canvasCtx.shadowBlur = 20;
+            canvasCtx.shadowColor = '#38bdf8';
+            canvasCtx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+            canvasCtx.lineWidth = 3;
+
+            // 旋轉外環
+            const rot = (Date.now() / 1000) * Math.PI;
+            canvasCtx.beginPath();
+            canvasCtx.arc(cx, cy, 60, 0, Math.PI * 2);
+            canvasCtx.stroke();
+
+            // 內裝飾六角星
+            canvasCtx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = rot + (i * Math.PI / 3);
+                const x = cx + Math.cos(angle) * 50;
+                const y = cy + Math.sin(angle) * 50;
+                if (i === 0) canvasCtx.moveTo(x, y);
+                else canvasCtx.lineTo(x, y);
+            }
+            canvasCtx.closePath();
+            canvasCtx.stroke();
+
+            // 產生冰霜微粒
+            if (Math.random() < 0.3) {
+                spawnParticle(cx + (Math.random()-0.5)*80, cy + (Math.random()-0.5)*80, '#e0f2fe', 0.8, 4, 0.5);
+            }
+        }
+
+        // 2. 蓄能集氣
+        function drawSpellCharging(cx, cy, color) {
+            canvasCtx.beginPath();
+            canvasCtx.arc(cx, cy, 40 * Math.sin(Date.now() / 100), 0, Math.PI * 2);
+            canvasCtx.strokeStyle = color;
+            canvasCtx.lineWidth = 2;
+            canvasCtx.stroke();
+
+            // 吸入粒子效果
+            if (Math.random() < 0.4) {
+                const angle = Math.random() * Math.PI * 2;
+                const r = 80;
+                const px = cx + Math.cos(angle) * r;
+                const py = cy + Math.sin(angle) * r;
+                particles.push({
+                    x: px,
+                    y: py,
+                    vx: -Math.cos(angle) * 4,
+                    vy: -Math.sin(angle) * 4,
+                    color: color,
+                    size: 4,
+                    life: 0.5,
+                    maxLife: 0.5
+                });
+            }
+        }
+
+        // 3. 火球爆發
+        function triggerFireball(cx, cy) {
+            playTone(200, 0.5, 'triangle');
+            // 向中心噴發超多火球粒子
+            for (let i = 0; i < 40; i++) {
+                particles.push({
+                    x: cx,
+                    y: cy,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12,
+                    color: i % 2 === 0 ? '#f97316' : '#ef4444',
+                    size: Math.random() * 12 + 4,
+                    life: 1.2,
+                    maxLife: 1.2
+                });
+            }
+        }
+
+        // 4. 萬雷天引
+        function triggerLightning(cx, cy) {
+            if (Math.random() > 0.15) return; // 限制觸發頻率避免太密集
+            playTone(800, 0.2, 'sawtooth');
+            
+            // 閃電線條
+            canvasCtx.beginPath();
+            canvasCtx.shadowBlur = 30;
+            canvasCtx.shadowColor = '#60a5fa';
+            canvasCtx.strokeStyle = '#ffffff';
+            canvasCtx.lineWidth = 5;
+
+            let curX = cx;
+            let curY = 0;
+            canvasCtx.moveTo(curX, curY);
+
+            while (curY < cy) {
+                curX += (Math.random() - 0.5) * 60;
+                curY += Math.random() * 80 + 30;
+                canvasCtx.lineTo(curX, curY);
+            }
+            canvasCtx.stroke();
+
+            // 落雷處大爆炸粒子
+            for (let i = 0; i < 20; i++) {
+                spawnParticle(cx, cy, '#60a5fa', 5, 8);
+            }
+        }
+
+        // 5. 自然治癒
+        function triggerHeal(cx, cy) {
+            if (Math.random() > 0.2) return;
+            playTone(523.25, 0.15, 'sine'); // Do 523Hz
+
+            // 綠色向上飄浮法陣
+            for (let i = 0; i < 5; i++) {
+                particles.push({
+                    x: cx + (Math.random() - 0.5) * 60,
+                    y: cy,
+                    vx: (Math.random() - 0.5) * 1.5,
+                    vy: -Math.random() * 3 - 1,
+                    color: '#34d399',
+                    size: Math.random() * 6 + 2,
+                    life: 1.0,
+                    maxLife: 1.0
+                });
+            }
+        }
+
+
+        // --- MediaPipe 攝影機引擎啟動與綁定 ---
+        let cameraInstance = null;
+        const btnToggleCamera = document.getElementById('btn-toggle-camera');
+
+        btnToggleCamera.onclick = async () => {
+            if (isCameraActive) {
+                // 關閉相機
+                if (cameraInstance) {
+                    await cameraInstance.stop();
+                }
+                webcamElement.srcObject.getTracks().forEach(track => track.stop());
+                isCameraActive = false;
+                btnToggleCamera.innerHTML = `<i data-lucide="video" class="w-3.5 h-3.5"></i> 啟用相機`;
+                btnToggleCamera.classList.replace('bg-rose-600', 'bg-indigo-600');
+                btnToggleCamera.classList.replace('hover:bg-rose-500', 'hover:bg-indigo-500');
+                document.getElementById('status-dot').className = "w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping";
+                document.getElementById('status-text').innerText = "模擬偵測中 (點擊畫作)";
+                lucide.createIcons();
+            } else {
+                // 開啟相機
+                document.getElementById('status-text').innerText = "要求鏡頭授權中...";
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                    webcamElement.srcObject = stream;
+                    
+                    // 初始化 MediaPipe
+                    const hands = new Hands({
+                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+                    });
+
+                    hands.setOptions({
+                        maxNumHands: 2,
+                        modelComplexity: 1,
+                        minDetectionConfidence: 0.6,
+                        minTrackingConfidence: 0.6
+                    });
+
+                    hands.onResults(processInteractiveFrame);
+
+                    cameraInstance = new Camera(webcamElement, {
+                        onFrame: async () => {
+                            await hands.send({ image: webcamElement });
+                        },
+                        width: 640,
+                        height: 480
+                    });
+
+                    await cameraInstance.start();
+                    isCameraActive = true;
+                    btnToggleCamera.innerHTML = `<i data-lucide="video-off" class="w-3.5 h-3.5"></i> 關閉相機`;
+                    btnToggleCamera.classList.replace('bg-indigo-600', 'bg-rose-600');
+                    btnToggleCamera.classList.replace('hover:bg-indigo-500', 'hover:bg-rose-500');
+                    document.getElementById('status-dot').className = "w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse";
+                    document.getElementById('status-text').innerText = "AI 雙手偵測中";
+                    lucide.createIcons();
+
+                } catch (err) {
+                    console.error(err);
+                    document.getElementById('status-text').innerText = "相機啟動失敗";
+                    showModal("📷 無法取得鏡頭授權", "請檢查瀏覽器的攝影機權限設定。沒關係！您依然可以用滑鼠在右方畫布上『點擊並拖曳』，一樣能完全體驗所有手勢互動特效喔！");
+                }
+            }
+        };
+
+        // 預設跑一幀模擬畫面避免空白
+        setTimeout(() => {
+            processInteractiveFrame(null);
+        }, 500);
+
+    </script>
+</body>
+</html>
